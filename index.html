@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>VOPTIMIZE — Video Optimizer for Social</title>
+<!-- COI Service Worker: habilita SharedArrayBuffer en GitHub Pages -->
+<script src="https://cdn.jsdelivr.net/npm/coi-serviceworker@0.1.7/coi-serviceworker.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Barlow:wght@300;400;500;600;700;900&family=Barlow+Condensed:wght@400;600;700;900&display=swap');
 
@@ -975,14 +977,9 @@
   </div>
 </div>
 
-<!-- FFMPEG WASM -->
-<script type="module">
-import { FFmpeg } from 'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js';
-import { fetchFile } from 'https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/esm/index.js';
-
-window._FFmpeg = FFmpeg;
-window._fetchFile = fetchFile;
-</script>
+<!-- FFMPEG WASM — UMD build (evita CORS del Worker en GitHub Pages) -->
+<script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.6/dist/umd/ffmpeg.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/umd/index.js"></script>
 
 <script>
 // ═══════════════════════════════
@@ -1110,15 +1107,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function initFFmpeg() {
   try {
-    const { FFmpeg } = await import('https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js');
+    const { FFmpeg } = FFmpegWASM;
     ffmpegInstance = new FFmpeg();
     ffmpegInstance.on('log', ({ message }) => { addLog(message); });
     ffmpegInstance.on('progress', ({ progress }) => {
       const pct = Math.round(progress * 100);
       setProgress(pct, `Procesando: ${pct}%`);
     });
+    addLog('Cargando FFmpeg WASM core...');
+    await ffmpegInstance.load({
+      coreURL: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js',
+      wasmURL: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm',
+    });
     ffmpegReady = true;
-    addLog('FFmpeg WASM disponible');
+    addLog('✓ FFmpeg WASM listo');
   } catch(e) {
     addLog('Error cargando FFmpeg: ' + e.message);
   }
@@ -1315,15 +1317,8 @@ window.processVideo = async function() {
 
   try {
     if(!ffmpegInstance) throw new Error('FFmpeg no disponible');
-    const { fetchFile } = await import('https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/esm/index.js');
+    const fetchFile = FFmpegUtil.fetchFile;
 
-    setProgress(10, 'Cargando FFmpeg...');
-    if(!ffmpegInstance.loaded) {
-      await ffmpegInstance.load({
-        coreURL: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.js',
-      });
-    }
-    addLog('FFmpeg cargado correctamente');
     setProgress(20, 'Leyendo archivo de video...');
 
     const ext = videoFile.name.split('.').pop();
@@ -1410,7 +1405,7 @@ window.processVideo = async function() {
     setProgress(0, 'Error en el procesamiento');
     btn.textContent = '⚡ Optimizar y Exportar Video';
     btn.disabled = false;
-    alert('Error procesando el video:\n' + err.message + '\n\nAsegúrate de que tu navegador soporte SharedArrayBuffer (Chrome recomendado).');
+    alert('Error procesando el video:\n' + err.message + '\n\nSi el error persiste, recarga la página (el service worker necesita activarse en la primera carga).');
   }
 };
 
