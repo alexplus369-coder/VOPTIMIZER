@@ -4,9 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>VOPTIMIZE — Video Optimizer for Social</title>
-<!-- COI Service Worker: habilita SharedArrayBuffer en GitHub Pages.
-     DEBE ser relativo al mismo dominio — no puede cargarse desde CDN. -->
-<script src="./coi-serviceworker.js"></script>
+<!-- COI Service Worker no necesario con FFmpeg 0.11.x -->
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Barlow:wght@300;400;500;600;700;900&family=Barlow+Condensed:wght@400;600;700;900&display=swap');
 
@@ -978,9 +976,9 @@
   </div>
 </div>
 
-<!-- FFMPEG WASM — UMD build (evita CORS del Worker en GitHub Pages) -->
-<script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.6/dist/umd/ffmpeg.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/umd/index.js"></script>
+<!-- FFMPEG WASM 0.11.x — NO requiere SharedArrayBuffer ni service workers.
+     Funciona en cualquier página HTTPS incluyendo GitHub Pages. -->
+<script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
 
 <script>
 // ═══════════════════════════════
@@ -1108,31 +1106,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function initFFmpeg() {
   try {
-    if(typeof FFmpegWASM === 'undefined') {
-      addLog('⚠ FFmpegWASM no cargado aún');
+    if(typeof FFmpeg === 'undefined') {
+      addLog('⚠ FFmpeg script no cargado. Verifica tu conexión.');
       return;
     }
-    const { FFmpeg } = FFmpegWASM;
-    ffmpegInstance = new FFmpeg();
-    ffmpegInstance.on('log', ({ message }) => { addLog(message); });
-    ffmpegInstance.on('progress', ({ progress }) => {
-      const pct = Math.round(progress * 100);
-      setProgress(pct, `Procesando: ${pct}%`);
+    const { createFFmpeg } = FFmpeg;
+    ffmpegInstance = createFFmpeg({
+      log: true,
+      corePath: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js',
+      progress: ({ ratio }) => {
+        const pct = Math.round(ratio * 100);
+        if(pct > 0) setProgress(pct, `Procesando: ${pct}%`);
+      },
+      logger: ({ message }) => { addLog(message); },
     });
-
-    if(!crossOriginIsolated) {
-      addLog('⚠ SharedArrayBuffer no disponible aún. Si es la primera carga, la página se recargará automáticamente.');
-      addLog('  Si no se recarga, verifica que coi-serviceworker.js esté en el mismo directorio.');
-      return;
-    }
-
-    addLog('Cargando FFmpeg WASM core...');
-    await ffmpegInstance.load({
-      coreURL: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js',
-      wasmURL:  'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm',
-    });
+    addLog('Cargando FFmpeg WASM core (0.11.x)...');
+    await ffmpegInstance.load();
     ffmpegReady = true;
-    addLog('✓ FFmpeg WASM listo');
+    addLog('✓ FFmpeg WASM listo — sin SharedArrayBuffer requerido');
   } catch(e) {
     addLog('Error cargando FFmpeg: ' + e.message);
   }
@@ -1298,69 +1289,62 @@ window.processVideo = async function() {
   document.getElementById('log-wrap').style.display = 'block';
   document.getElementById('download-wrap').style.display = 'none';
 
-  const vcodec = document.getElementById('vcodec').value;
-  const vformat = document.getElementById('vformat').value;
-  const resolution = document.getElementById('resolution').value;
-  const fps = document.getElementById('fps').value;
-  const vbitrate = document.getElementById('vbitrate').value;
-  const crf = document.getElementById('crf').value;
-  const vpreset = document.getElementById('preset').value;
-  const acodec = document.getElementById('acodec').value;
-  const abitrate = document.getElementById('abitrate').value;
+  const vcodec    = document.getElementById('vcodec').value;
+  const vformat   = document.getElementById('vformat').value;
+  const resolution= document.getElementById('resolution').value;
+  const fps       = document.getElementById('fps').value;
+  const vbitrate  = document.getElementById('vbitrate').value;
+  const crf       = document.getElementById('crf').value;
+  const vpreset   = document.getElementById('preset').value;
+  const acodec    = document.getElementById('acodec').value;
+  const abitrate  = document.getElementById('abitrate').value;
   const achannels = document.getElementById('achannels').value;
-  const asample = document.getElementById('asample').value;
-  const volume = document.getElementById('volume').value;
+  const asample   = document.getElementById('asample').value;
+  const volume    = document.getElementById('volume').value;
   const faststart = document.getElementById('faststart').checked;
-  const loudnorm = document.getElementById('loudnorm').checked;
-  const colorfix = document.getElementById('colorfix').checked;
-  // metadata
-  const title = document.getElementById('meta-title').value;
-  const comment = document.getElementById('meta-comment').value;
-  const author = document.getElementById('meta-author').value;
+  const loudnorm  = document.getElementById('loudnorm').checked;
+  const colorfix  = document.getElementById('colorfix').checked;
+  const title     = document.getElementById('meta-title').value;
+  const comment   = document.getElementById('meta-comment').value;
+  const author    = document.getElementById('meta-author').value;
   const copyright = document.getElementById('meta-copyright').value;
-  const year = document.getElementById('meta-year').value;
-  const lang = document.getElementById('meta-lang').value;
-  const tags = document.getElementById('meta-tags').value;
-  const outname = document.getElementById('out-filename').value || 'video-optimizado';
-  const outfile = outname.replace(/[^a-zA-Z0-9\-_]/g,'_') + '.' + vformat;
+  const year      = document.getElementById('meta-year').value;
+  const lang      = document.getElementById('meta-lang').value;
+  const tags      = document.getElementById('meta-tags').value;
+  const outname   = document.getElementById('out-filename').value || 'video-optimizado';
+  const outfile   = outname.replace(/[^a-zA-Z0-9\-_]/g,'_') + '.' + vformat;
 
-  setProgress(5, 'Iniciando FFmpeg WASM...');
+  setProgress(5, 'Iniciando FFmpeg...');
   addLog('— Iniciando procesamiento —');
 
   try {
-    if(!ffmpegInstance) {
-      throw new Error('FFmpeg no inicializado. Recarga la página e intenta de nuevo.');
-    }
+    if(!ffmpegInstance) throw new Error('FFmpeg no inicializado. Recarga la página.');
 
-    // Si aún no se ha cargado el core (puede pasar si la página cargó sin COI aún)
+    // Auto-load si no está listo (API 0.11.x)
     if(!ffmpegReady) {
-      setProgress(8, 'Cargando FFmpeg core...');
-      addLog('Cargando FFmpeg core (primera vez)...');
-      await ffmpegInstance.load({
-        coreURL: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js',
-        wasmURL:  'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm',
-      });
+      setProgress(10, 'Cargando FFmpeg core...');
+      await ffmpegInstance.load();
       ffmpegReady = true;
       addLog('✓ FFmpeg core cargado');
     }
 
-    const fetchFile = FFmpegUtil.fetchFile;
+    const { fetchFile } = FFmpeg;
 
     setProgress(20, 'Leyendo archivo de video...');
-
-    const ext = videoFile.name.split('.').pop();
+    const ext = videoFile.name.split('.').pop().toLowerCase();
     const inName = 'input.' + ext;
-    await ffmpegInstance.writeFile(inName, await fetchFile(videoFile));
-    addLog('Archivo de entrada: ' + inName);
+    // API 0.11.x usa FS() en vez de writeFile()
+    ffmpegInstance.FS('writeFile', inName, await fetchFile(videoFile));
+    addLog('Archivo cargado: ' + inName + ' (' + formatBytes(videoFile.size) + ')');
 
-    // BUILD FFMPEG COMMAND
+    // ── BUILD COMMAND ──
     const args = ['-i', inName];
 
     // Video filters
     const vfilters = [];
     if(resolution) vfilters.push(resolution);
     if(colorfix) vfilters.push('colorlevels=rimin=0.059:gimin=0.059:bimin=0.059:ramax=0.902:gamax=0.902:bamax=0.902');
-    if(vfilters.length > 0) { args.push('-vf', vfilters.join(',')); }
+    if(vfilters.length > 0) args.push('-vf', vfilters.join(','));
 
     // Video codec
     if(vcodec === 'copy') {
@@ -1368,9 +1352,9 @@ window.processVideo = async function() {
     } else {
       args.push('-c:v', vcodec);
       if(vcodec === 'libx264' || vcodec === 'libx265') {
-        args.push('-crf', crf, '-preset', vpreset);
+        args.push('-crf', String(crf), '-preset', vpreset);
       }
-      args.push('-b:v', vbitrate+'M');
+      args.push('-b:v', vbitrate + 'M');
     }
 
     // FPS
@@ -1386,34 +1370,33 @@ window.processVideo = async function() {
       if(parseFloat(volume) !== 0) audioFilters.push(`volume=${volume}dB`);
       if(loudnorm) audioFilters.push('loudnorm=I=-14:TP=-2:LRA=11');
       if(audioFilters.length > 0) args.push('-af', audioFilters.join(','));
-      args.push('-c:a', acodec, '-b:a', abitrate, '-ac', achannels, '-ar', asample);
+      args.push('-c:a', acodec, '-b:a', abitrate, '-ac', String(achannels), '-ar', String(asample));
     }
 
     // Metadata
-    if(title) args.push('-metadata', `title=${title}`);
-    if(comment) args.push('-metadata', `comment=${comment}`);
-    if(author) args.push('-metadata', `artist=${author}`);
-    if(copyright) args.push('-metadata', `copyright=${copyright}`);
-    if(year) args.push('-metadata', `year=${year}`);
-    if(lang) args.push('-metadata', `language=${lang}`);
-    if(tags) args.push('-metadata', `keywords=${tags}`);
+    if(title)     { args.push('-metadata', 'title='     + title);     }
+    if(comment)   { args.push('-metadata', 'comment='   + comment);   }
+    if(author)    { args.push('-metadata', 'artist='    + author);    }
+    if(copyright) { args.push('-metadata', 'copyright=' + copyright); }
+    if(year)      { args.push('-metadata', 'year='      + year);      }
+    if(lang)      { args.push('-metadata', 'language='  + lang);      }
+    if(tags)      { args.push('-metadata', 'keywords='  + tags);      }
 
-    // Faststart
-    if(faststart && vformat === 'mp4') {
-      args.push('-movflags', 'faststart');
-    }
+    // Faststart (MP4 web optimization)
+    if(faststart && vformat === 'mp4') args.push('-movflags', 'faststart');
 
     args.push('-y', outfile);
 
-    addLog('Comando: ffmpeg ' + args.join(' '));
-    setProgress(30, 'Procesando video...');
+    addLog('Ejecutando: ffmpeg ' + args.join(' '));
+    setProgress(30, 'Procesando video (puede tardar unos minutos)...');
 
-    await ffmpegInstance.exec(args);
+    // API 0.11.x usa run() en vez de exec()
+    await ffmpegInstance.run(...args);
 
-    setProgress(90, 'Leyendo archivo de salida...');
-    const data = await ffmpegInstance.readFile(outfile);
+    setProgress(92, 'Leyendo archivo de salida...');
+    const data = ffmpegInstance.FS('readFile', outfile);
     const blob = new Blob([data.buffer], { type: 'video/' + vformat });
-    const url = URL.createObjectURL(blob);
+    const url  = URL.createObjectURL(blob);
 
     const dlLink = document.getElementById('download-link');
     dlLink.href = url;
@@ -1422,17 +1405,21 @@ window.processVideo = async function() {
     document.getElementById('download-wrap').style.display = 'block';
 
     setProgress(100, '¡Video procesado con éxito! 🎉');
-    addLog('✓ Procesamiento completado: ' + outfile + ' (' + formatBytes(blob.size) + ')');
+    addLog('✓ Completado: ' + outfile + ' — ' + formatBytes(blob.size));
+
+    // Limpiar archivos temporales de WASM FS
+    try { ffmpegInstance.FS('unlink', inName); } catch(e) {}
+    try { ffmpegInstance.FS('unlink', outfile); } catch(e) {}
 
     btn.textContent = '✓ Completado — Procesar otro';
     btn.disabled = false;
 
   } catch(err) {
     addLog('ERROR: ' + err.message);
-    setProgress(0, 'Error en el procesamiento');
+    setProgress(0, 'Error — revisa el log');
     btn.textContent = '⚡ Optimizar y Exportar Video';
     btn.disabled = false;
-    alert('Error procesando el video:\n' + err.message + '\n\nSi el error persiste, recarga la página (el service worker necesita activarse en la primera carga).');
+    alert('Error procesando el video:\n' + err.message);
   }
 };
 
