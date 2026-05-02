@@ -4,8 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>VOPTIMIZE — Video Optimizer for Social</title>
-<!-- COI Service Worker: habilita SharedArrayBuffer en GitHub Pages -->
-<script src="https://cdn.jsdelivr.net/npm/coi-serviceworker@0.1.7/coi-serviceworker.min.js"></script>
+<!-- COI Service Worker: habilita SharedArrayBuffer en GitHub Pages.
+     DEBE ser relativo al mismo dominio — no puede cargarse desde CDN. -->
+<script src="./coi-serviceworker.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Barlow:wght@300;400;500;600;700;900&family=Barlow+Condensed:wght@400;600;700;900&display=swap');
 
@@ -1107,6 +1108,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function initFFmpeg() {
   try {
+    if(typeof FFmpegWASM === 'undefined') {
+      addLog('⚠ FFmpegWASM no cargado aún');
+      return;
+    }
     const { FFmpeg } = FFmpegWASM;
     ffmpegInstance = new FFmpeg();
     ffmpegInstance.on('log', ({ message }) => { addLog(message); });
@@ -1114,10 +1119,17 @@ async function initFFmpeg() {
       const pct = Math.round(progress * 100);
       setProgress(pct, `Procesando: ${pct}%`);
     });
+
+    if(!crossOriginIsolated) {
+      addLog('⚠ SharedArrayBuffer no disponible aún. Si es la primera carga, la página se recargará automáticamente.');
+      addLog('  Si no se recarga, verifica que coi-serviceworker.js esté en el mismo directorio.');
+      return;
+    }
+
     addLog('Cargando FFmpeg WASM core...');
     await ffmpegInstance.load({
       coreURL: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js',
-      wasmURL: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm',
+      wasmURL:  'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm',
     });
     ffmpegReady = true;
     addLog('✓ FFmpeg WASM listo');
@@ -1316,7 +1328,22 @@ window.processVideo = async function() {
   addLog('— Iniciando procesamiento —');
 
   try {
-    if(!ffmpegInstance) throw new Error('FFmpeg no disponible');
+    if(!ffmpegInstance) {
+      throw new Error('FFmpeg no inicializado. Recarga la página e intenta de nuevo.');
+    }
+
+    // Si aún no se ha cargado el core (puede pasar si la página cargó sin COI aún)
+    if(!ffmpegReady) {
+      setProgress(8, 'Cargando FFmpeg core...');
+      addLog('Cargando FFmpeg core (primera vez)...');
+      await ffmpegInstance.load({
+        coreURL: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js',
+        wasmURL:  'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm',
+      });
+      ffmpegReady = true;
+      addLog('✓ FFmpeg core cargado');
+    }
+
     const fetchFile = FFmpegUtil.fetchFile;
 
     setProgress(20, 'Leyendo archivo de video...');
