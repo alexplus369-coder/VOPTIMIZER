@@ -1,0 +1,1451 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VOPTIMIZE — Video Optimizer for Social</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Barlow:wght@300;400;500;600;700;900&family=Barlow+Condensed:wght@400;600;700;900&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg0: #0a0b0e;
+    --bg1: #10121a;
+    --bg2: #181c28;
+    --bg3: #1f2435;
+    --bg4: #252b3e;
+    --border: #2e3550;
+    --accent: #00e5ff;
+    --accent2: #7c3aed;
+    --accent3: #f59e0b;
+    --red: #ff3b5c;
+    --green: #00e676;
+    --text: #e8eaf6;
+    --text2: #8892b0;
+    --text3: #4a5568;
+    --yt: #ff0000;
+    --tt: #ff0050;
+    --ig: #c13584;
+    --fb: #1877f2;
+    --x: #ffffff;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg0);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── NOISE OVERLAY ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 9999; opacity: .5;
+  }
+
+  /* ── HEADER ── */
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 40px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(16,18,26,.92);
+    backdrop-filter: blur(20px);
+    position: sticky; top: 0; z-index: 100;
+  }
+
+  .logo {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 900; font-size: 1.55rem;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--text);
+  }
+  .logo span { color: var(--accent); }
+
+  .badge {
+    font-family: 'Space Mono', monospace;
+    font-size: .65rem; letter-spacing: .15em;
+    background: var(--bg3); border: 1px solid var(--border);
+    color: var(--text2); padding: 4px 10px; border-radius: 2px;
+  }
+
+  /* ── MAIN LAYOUT ── */
+  .main {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 40px 32px;
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 28px;
+  }
+
+  /* ── PANEL ── */
+  .panel {
+    background: var(--bg1);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .panel-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+  }
+
+  .panel-head h2 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700; font-size: 1rem;
+    letter-spacing: .1em; text-transform: uppercase;
+    color: var(--text);
+  }
+
+  .panel-head .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent); flex-shrink: 0;
+  }
+
+  .panel-body { padding: 20px; }
+
+  /* ── DROP ZONE ── */
+  #dropzone {
+    border: 2px dashed var(--border);
+    border-radius: 6px;
+    padding: 60px 40px;
+    text-align: center;
+    cursor: pointer;
+    transition: all .25s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  #dropzone:hover, #dropzone.dragover {
+    border-color: var(--accent);
+    background: rgba(0,229,255,.04);
+  }
+
+  #dropzone .drop-icon {
+    font-size: 3rem; margin-bottom: 16px;
+    display: block;
+  }
+
+  #dropzone h3 {
+    font-size: 1.15rem; font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  #dropzone p {
+    color: var(--text2); font-size: .88rem;
+  }
+
+  #dropzone input[type=file] {
+    position: absolute; inset: 0;
+    opacity: 0; cursor: pointer;
+    width: 100%; height: 100%;
+  }
+
+  /* ── VIDEO PREVIEW ── */
+  #preview-wrap {
+    display: none;
+    border-radius: 6px;
+    overflow: hidden;
+    background: #000;
+    position: relative;
+  }
+
+  #preview-wrap video {
+    width: 100%;
+    max-height: 380px;
+    object-fit: contain;
+    display: block;
+  }
+
+  .preview-badge {
+    position: absolute; top: 10px; left: 10px;
+    background: rgba(0,0,0,.75);
+    border: 1px solid var(--border);
+    font-family: 'Space Mono', monospace;
+    font-size: .68rem; padding: 4px 9px;
+    border-radius: 2px; color: var(--accent);
+  }
+
+  /* ── PLATFORM SELECTOR ── */
+  .platform-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+  }
+
+  .plat-btn {
+    border: 1px solid var(--border);
+    background: var(--bg2);
+    border-radius: 6px;
+    padding: 12px 8px;
+    text-align: center;
+    cursor: pointer;
+    transition: all .2s ease;
+    position: relative;
+  }
+
+  .plat-btn:hover { border-color: var(--text3); background: var(--bg3); }
+
+  .plat-btn.active {
+    border-color: var(--accent);
+    background: rgba(0,229,255,.07);
+  }
+
+  .plat-btn .plat-icon { font-size: 1.5rem; display: block; margin-bottom: 5px; }
+  .plat-btn .plat-name {
+    font-size: .7rem; font-weight: 600; letter-spacing: .05em;
+    text-transform: uppercase; color: var(--text2);
+  }
+
+  .plat-btn.active .plat-name { color: var(--accent); }
+
+  /* platform color accents */
+  .plat-btn[data-plat="youtube"].active { border-color: var(--yt); background: rgba(255,0,0,.07); }
+  .plat-btn[data-plat="youtube"].active .plat-name { color: var(--yt); }
+  .plat-btn[data-plat="tiktok"].active { border-color: var(--tt); background: rgba(255,0,80,.07); }
+  .plat-btn[data-plat="tiktok"].active .plat-name { color: var(--tt); }
+  .plat-btn[data-plat="instagram"].active { border-color: var(--ig); background: rgba(193,53,132,.07); }
+  .plat-btn[data-plat="instagram"].active .plat-name { color: var(--ig); }
+  .plat-btn[data-plat="facebook"].active { border-color: var(--fb); background: rgba(24,119,242,.07); }
+  .plat-btn[data-plat="facebook"].active .plat-name { color: var(--fb); }
+
+  /* ── SECTION LABEL ── */
+  .sec-label {
+    font-family: 'Space Mono', monospace;
+    font-size: .65rem; letter-spacing: .15em;
+    text-transform: uppercase; color: var(--text3);
+    margin-bottom: 12px; margin-top: 24px;
+    border-bottom: 1px solid var(--border); padding-bottom: 6px;
+  }
+  .sec-label:first-child { margin-top: 0; }
+
+  /* ── FORM CONTROLS ── */
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+
+  label {
+    font-size: .75rem; font-weight: 600;
+    letter-spacing: .06em; text-transform: uppercase;
+    color: var(--text2);
+  }
+
+  select, input[type=text], input[type=number], textarea {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    font-size: .9rem;
+    padding: 9px 12px;
+    outline: none;
+    transition: border-color .2s;
+    width: 100%;
+  }
+
+  select:focus, input[type=text]:focus,
+  input[type=number]:focus, textarea:focus {
+    border-color: var(--accent);
+  }
+
+  textarea { resize: vertical; min-height: 70px; }
+
+  select option { background: var(--bg3); }
+
+  .full { grid-column: 1 / -1; }
+
+  /* ── RANGE ── */
+  .range-wrap {
+    display: flex; align-items: center; gap: 12px;
+  }
+
+  input[type=range] {
+    flex: 1;
+    -webkit-appearance: none;
+    height: 4px;
+    background: var(--bg4);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }
+
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    background: var(--accent);
+    border-radius: 50%;
+    cursor: pointer;
+    transition: transform .15s;
+  }
+
+  input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.3); }
+
+  .range-val {
+    font-family: 'Space Mono', monospace;
+    font-size: .8rem; color: var(--accent);
+    min-width: 52px; text-align: right;
+  }
+
+  /* ── TOGGLE ── */
+  .toggle-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .toggle-row:last-child { border-bottom: none; }
+
+  .toggle-info h4 { font-size: .88rem; font-weight: 600; margin-bottom: 2px; }
+  .toggle-info p { font-size: .75rem; color: var(--text2); }
+
+  .toggle {
+    position: relative; width: 38px; height: 22px; flex-shrink: 0;
+  }
+
+  .toggle input { opacity: 0; width: 0; height: 0; }
+
+  .toggle-slider {
+    position: absolute; inset: 0;
+    background: var(--bg4); border-radius: 11px; cursor: pointer;
+    transition: background .25s;
+  }
+
+  .toggle-slider::before {
+    content: ''; position: absolute;
+    width: 16px; height: 16px;
+    left: 3px; top: 3px;
+    background: var(--text2); border-radius: 50%;
+    transition: transform .25s, background .25s;
+  }
+
+  .toggle input:checked + .toggle-slider { background: var(--accent); }
+  .toggle input:checked + .toggle-slider::before {
+    transform: translateX(16px);
+    background: var(--bg0);
+  }
+
+  /* ── INFO CARD ── */
+  .info-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+  }
+
+  .info-card .info-title {
+    font-family: 'Space Mono', monospace;
+    font-size: .65rem; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--text3);
+    margin-bottom: 10px;
+  }
+
+  .info-row {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: .82rem; padding: 3px 0;
+  }
+
+  .info-row .key { color: var(--text2); }
+  .info-row .val {
+    font-family: 'Space Mono', monospace;
+    font-size: .75rem; color: var(--text);
+  }
+  .info-row .val.good { color: var(--green); }
+  .info-row .val.warn { color: var(--accent3); }
+  .info-row .val.bad { color: var(--red); }
+
+  /* ── SCORE ── */
+  .score-ring {
+    display: flex; align-items: center; gap: 16px;
+    padding: 16px 0;
+  }
+
+  .ring-wrap {
+    position: relative; width: 72px; height: 72px; flex-shrink: 0;
+  }
+
+  .ring-wrap svg { transform: rotate(-90deg); }
+
+  .ring-wrap .ring-num {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 1.4rem; font-weight: 900;
+  }
+
+  .score-desc h3 { font-size: 1rem; font-weight: 700; margin-bottom: 4px; }
+  .score-desc p { font-size: .8rem; color: var(--text2); line-height: 1.5; }
+
+  /* ── CHECKLIST ── */
+  .checklist { display: flex; flex-direction: column; gap: 8px; }
+
+  .check-item {
+    display: flex; align-items: flex-start; gap: 10px;
+    font-size: .82rem; line-height: 1.45;
+  }
+
+  .check-item .icon { font-size: 1rem; flex-shrink: 0; line-height: 1.2; }
+  .check-item .check-text { color: var(--text2); }
+  .check-item .check-text strong { color: var(--text); font-weight: 600; }
+
+  /* ── BUTTONS ── */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    gap: 8px; font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700; font-size: 1rem; letter-spacing: .08em;
+    text-transform: uppercase; padding: 12px 24px;
+    border-radius: 4px; border: none; cursor: pointer;
+    transition: all .2s ease;
+  }
+
+  .btn-primary {
+    background: var(--accent); color: var(--bg0);
+  }
+  .btn-primary:hover { filter: brightness(1.12); transform: translateY(-1px); }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-primary:disabled {
+    opacity: .35; cursor: not-allowed; transform: none; filter: none;
+  }
+
+  .btn-ghost {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text2);
+  }
+  .btn-ghost:hover { border-color: var(--text2); color: var(--text); }
+
+  .btn-full { width: 100%; }
+
+  /* ── PROGRESS ── */
+  .progress-wrap {
+    display: none;
+    margin-top: 12px;
+  }
+
+  .progress-bar {
+    height: 4px; background: var(--bg3); border-radius: 2px;
+    overflow: hidden; margin-bottom: 8px;
+  }
+
+  .progress-fill {
+    height: 100%; background: var(--accent);
+    border-radius: 2px; width: 0%;
+    transition: width .3s ease;
+  }
+
+  .progress-text {
+    font-family: 'Space Mono', monospace;
+    font-size: .7rem; color: var(--text2); text-align: center;
+  }
+
+  /* ── LOG ── */
+  #log-wrap {
+    display: none;
+    margin-top: 12px;
+  }
+
+  #log-box {
+    background: var(--bg0);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-family: 'Space Mono', monospace;
+    font-size: .65rem; color: var(--text3);
+    padding: 10px 12px;
+    height: 80px; overflow-y: auto;
+    line-height: 1.6;
+  }
+
+  /* ── DOWNLOAD ── */
+  #download-wrap {
+    display: none;
+    margin-top: 12px;
+  }
+
+  /* ── TABS ── */
+  .tabs {
+    display: flex; border-bottom: 1px solid var(--border);
+    margin-bottom: 16px;
+  }
+
+  .tab {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700; font-size: .85rem;
+    letter-spacing: .08em; text-transform: uppercase;
+    color: var(--text3); padding: 10px 16px;
+    border-bottom: 2px solid transparent;
+    cursor: pointer; transition: all .2s;
+    margin-bottom: -1px;
+  }
+
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab:hover:not(.active) { color: var(--text2); }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg1); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+
+  /* ── TOOLTIP ── */
+  [data-tip] { position: relative; cursor: help; }
+  [data-tip]::after {
+    content: attr(data-tip);
+    position: absolute; bottom: calc(100% + 6px); left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg3); border: 1px solid var(--border);
+    color: var(--text); font-size: .72rem; font-family: 'Barlow', sans-serif;
+    padding: 6px 10px; border-radius: 4px; white-space: nowrap;
+    opacity: 0; pointer-events: none; transition: opacity .2s;
+    z-index: 10;
+  }
+  [data-tip]:hover::after { opacity: 1; }
+
+  /* ── PLATFORM TIP BOX ── */
+  .tip-box {
+    background: var(--bg2); border-radius: 5px;
+    border-left: 3px solid var(--accent);
+    padding: 12px 14px; margin-bottom: 16px;
+    font-size: .8rem; line-height: 1.6; color: var(--text2);
+    display: none;
+  }
+  .tip-box.visible { display: block; }
+  .tip-box strong { color: var(--text); }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 900px) {
+    .main { grid-template-columns: 1fr; }
+    header { padding: 14px 20px; }
+  }
+
+  /* ── ANIM ── */
+  @keyframes pulse {
+    0%,100% { opacity: 1; }
+    50% { opacity: .4; }
+  }
+
+  .processing-dot {
+    display: inline-block; width: 8px; height: 8px;
+    background: var(--accent); border-radius: 50%;
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .panel { animation: slideIn .3s ease; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">V<span>OPTIMIZE</span></div>
+  <div style="display:flex;gap:10px;align-items:center;">
+    <div class="badge">Browser · 100% Local</div>
+    <div class="badge">FFmpeg WASM</div>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- ═══ LEFT COLUMN ═══ -->
+  <div style="display:flex;flex-direction:column;gap:20px;">
+
+    <!-- UPLOAD -->
+    <div class="panel">
+      <div class="panel-head">
+        <div class="dot"></div>
+        <h2>Cargar Video</h2>
+      </div>
+      <div class="panel-body">
+        <div id="dropzone">
+          <input type="file" id="file-input" accept="video/*">
+          <span class="drop-icon">🎬</span>
+          <h3>Arrastra tu video aquí</h3>
+          <p>o haz click para seleccionar &nbsp;·&nbsp; MP4, MOV, AVI, MKV, WEBM</p>
+        </div>
+        <div id="preview-wrap" style="margin-top:14px;">
+          <span class="preview-badge" id="orig-badge">ORIGINAL</span>
+          <video id="preview-video" controls></video>
+        </div>
+      </div>
+    </div>
+
+    <!-- PLATFORM -->
+    <div class="panel">
+      <div class="panel-head">
+        <div class="dot" style="background:var(--accent3)"></div>
+        <h2>Plataforma Destino</h2>
+      </div>
+      <div class="panel-body">
+        <div class="platform-grid">
+          <div class="plat-btn active" data-plat="youtube" onclick="setPlatform('youtube',this)">
+            <span class="plat-icon">📺</span>
+            <span class="plat-name">YouTube</span>
+          </div>
+          <div class="plat-btn" data-plat="tiktok" onclick="setPlatform('tiktok',this)">
+            <span class="plat-icon">🎵</span>
+            <span class="plat-name">TikTok</span>
+          </div>
+          <div class="plat-btn" data-plat="instagram" onclick="setPlatform('instagram',this)">
+            <span class="plat-icon">📸</span>
+            <span class="plat-name">Instagram</span>
+          </div>
+          <div class="plat-btn" data-plat="facebook" onclick="setPlatform('facebook',this)">
+            <span class="plat-icon">👤</span>
+            <span class="plat-name">Facebook</span>
+          </div>
+          <div class="plat-btn" data-plat="x" onclick="setPlatform('x',this)">
+            <span class="plat-icon">✖️</span>
+            <span class="plat-name">X / Twitter</span>
+          </div>
+        </div>
+        <div id="platform-tip" class="tip-box visible"></div>
+      </div>
+    </div>
+
+    <!-- SETTINGS TABS -->
+    <div class="panel">
+      <div class="panel-head">
+        <div class="dot" style="background:var(--accent2)"></div>
+        <h2>Configuración Técnica</h2>
+      </div>
+      <div class="panel-body">
+
+        <div class="tabs">
+          <div class="tab active" onclick="switchTab('video')">Video</div>
+          <div class="tab" onclick="switchTab('audio')">Audio</div>
+          <div class="tab" onclick="switchTab('meta')">Metadatos</div>
+          <div class="tab" onclick="switchTab('file')">Archivo</div>
+        </div>
+
+        <!-- VIDEO TAB -->
+        <div class="tab-content active" id="tab-video">
+
+          <p class="sec-label">Codec &amp; Contenedor</p>
+          <div class="form-row">
+            <div class="form-group">
+              <label data-tip="H.264 = máxima compatibilidad">Codec de Video</label>
+              <select id="vcodec">
+                <option value="libx264">H.264 (libx264) — Recomendado</option>
+                <option value="libx265">H.265 / HEVC</option>
+                <option value="libvpx-vp9">VP9 (WebM)</option>
+                <option value="copy">Copiar sin recodificar</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Formato de Salida</label>
+              <select id="vformat">
+                <option value="mp4">MP4 — Universal</option>
+                <option value="mov">MOV — Apple/Pro</option>
+                <option value="webm">WebM — Web</option>
+              </select>
+            </div>
+          </div>
+
+          <p class="sec-label">Resolución</p>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Resolución Presets</label>
+              <select id="resolution">
+                <option value="">Sin cambio (original)</option>
+                <option value="scale=1920:1080">1080p — 1920×1080</option>
+                <option value="scale=1280:720">720p — 1280×720</option>
+                <option value="scale=3840:2160">4K — 3840×2160</option>
+                <option value="scale=1080:1920">Vertical 9:16 — 1080×1920</option>
+                <option value="scale=1080:1080">Cuadrado 1:1 — 1080×1080</option>
+                <option value="scale=1080:1350">Instagram 4:5 — 1080×1350</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Frame Rate (FPS)</label>
+              <select id="fps">
+                <option value="">Sin cambio</option>
+                <option value="24">24 fps — Cinemático</option>
+                <option value="25">25 fps — PAL</option>
+                <option value="30" selected>30 fps — Estándar</option>
+                <option value="60">60 fps — Fluido</option>
+              </select>
+            </div>
+          </div>
+
+          <p class="sec-label">Bitrate de Video</p>
+          <div class="form-group">
+            <label>Bitrate (Mbps)</label>
+            <div class="range-wrap">
+              <input type="range" id="vbitrate" min="1" max="50" value="8" step="1" oninput="document.getElementById('vbitrate-val').textContent=this.value+' Mbps'">
+              <span class="range-val" id="vbitrate-val">8 Mbps</span>
+            </div>
+          </div>
+
+          <p class="sec-label">Opciones H.264 / CRF</p>
+          <div class="form-row">
+            <div class="form-group">
+              <label data-tip="CRF 18=Alta calidad · 28=Comprimido">CRF (Calidad Constante)</label>
+              <div class="range-wrap">
+                <input type="range" id="crf" min="15" max="35" value="22" step="1" oninput="document.getElementById('crf-val').textContent=this.value">
+                <span class="range-val" id="crf-val">22</span>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Preset de Velocidad</label>
+              <select id="preset">
+                <option value="ultrafast">Ultrafast</option>
+                <option value="fast">Fast</option>
+                <option value="medium" selected>Medium (Recomendado)</option>
+                <option value="slow">Slow (Mejor calidad)</option>
+              </select>
+            </div>
+          </div>
+
+          <p class="sec-label">Optimizaciones Web</p>
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <h4>-movflags faststart</h4>
+              <p>Mueve moov atom al inicio — el video carga antes en web/streaming</p>
+            </div>
+            <label class="toggle"><input type="checkbox" id="faststart" checked><span class="toggle-slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <h4>2-Pass Encoding</h4>
+              <p>Mayor calidad con bitrate exacto (más lento, recomendado para upload)</p>
+            </div>
+            <label class="toggle"><input type="checkbox" id="twopass"><span class="toggle-slider"></span></label>
+          </div>
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <h4>Normalizar colores (EBU R128)</h4>
+              <p>Ajusta niveles de color para pantallas móviles y displays HDR</p>
+            </div>
+            <label class="toggle"><input type="checkbox" id="colorfix"><span class="toggle-slider"></span></label>
+          </div>
+        </div>
+
+        <!-- AUDIO TAB -->
+        <div class="tab-content" id="tab-audio">
+          <p class="sec-label">Codec de Audio</p>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Codec</label>
+              <select id="acodec">
+                <option value="aac">AAC — Recomendado</option>
+                <option value="mp3">MP3</option>
+                <option value="opus">Opus (WebM)</option>
+                <option value="copy">Copiar sin recodificar</option>
+                <option value="none">Sin audio</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Bitrate Audio</label>
+              <select id="abitrate">
+                <option value="128k">128 kbps</option>
+                <option value="192k" selected>192 kbps</option>
+                <option value="256k">256 kbps</option>
+                <option value="320k">320 kbps — Máxima</option>
+              </select>
+            </div>
+          </div>
+          <p class="sec-label">Canales</p>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Canales</label>
+              <select id="achannels">
+                <option value="2" selected>Stereo (2)</option>
+                <option value="1">Mono (1)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Sample Rate</label>
+              <select id="asample">
+                <option value="44100" selected>44,100 Hz (CD)</option>
+                <option value="48000">48,000 Hz (Pro)</option>
+              </select>
+            </div>
+          </div>
+          <p class="sec-label">Volumen</p>
+          <div class="form-group">
+            <label>Ajuste de volumen (dB)</label>
+            <div class="range-wrap">
+              <input type="range" id="volume" min="-10" max="10" value="0" step="0.5" oninput="document.getElementById('vol-val').textContent=this.value+'dB'">
+              <span class="range-val" id="vol-val">0dB</span>
+            </div>
+          </div>
+          <div class="toggle-row" style="margin-top:16px;">
+            <div class="toggle-info">
+              <h4>Loudnorm (EBU R128)</h4>
+              <p>Normaliza el audio al estándar de transmisión (-14 LUFS)</p>
+            </div>
+            <label class="toggle"><input type="checkbox" id="loudnorm"><span class="toggle-slider"></span></label>
+          </div>
+        </div>
+
+        <!-- META TAB -->
+        <div class="tab-content" id="tab-meta">
+          <p class="sec-label">Metadatos del Video</p>
+          <p style="font-size:.8rem;color:var(--text2);margin-bottom:14px;line-height:1.6;">
+            Los metadatos embebidos ayudan a los algoritmos de las plataformas a identificar el contenido antes del análisis de IA.
+          </p>
+          <div class="form-row">
+            <div class="form-group full">
+              <label>Título</label>
+              <input type="text" id="meta-title" placeholder="Título del video...">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group full">
+              <label>Descripción / Comment</label>
+              <textarea id="meta-comment" placeholder="Descripción del contenido..."></textarea>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Autor / Artist</label>
+              <input type="text" id="meta-author" placeholder="Tu nombre o marca">
+            </div>
+            <div class="form-group">
+              <label>Copyright</label>
+              <input type="text" id="meta-copyright" placeholder="© 2025 TuMarca">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Año</label>
+              <input type="number" id="meta-year" placeholder="2025" value="2025">
+            </div>
+            <div class="form-group">
+              <label>Idioma</label>
+              <select id="meta-lang">
+                <option value="spa">Español</option>
+                <option value="eng">English</option>
+                <option value="por">Português</option>
+                <option value="fra">Français</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group full">
+              <label>Tags / Keywords</label>
+              <input type="text" id="meta-tags" placeholder="tag1, tag2, tag3...">
+            </div>
+          </div>
+        </div>
+
+        <!-- FILE TAB -->
+        <div class="tab-content" id="tab-file">
+          <p class="sec-label">Nombre del Archivo de Salida</p>
+          <p style="font-size:.8rem;color:var(--text2);margin-bottom:14px;line-height:1.6;">
+            El nombre del archivo influye levemente en SEO y en cómo los bots de cada plataforma catalogan el contenido.
+          </p>
+          <div class="form-group" style="margin-bottom:16px;">
+            <label>Nombre (sin extensión)</label>
+            <input type="text" id="out-filename" placeholder="mi-video-optimizado">
+          </div>
+          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:5px;padding:14px;">
+            <p style="font-size:.72rem;color:var(--text3);font-family:'Space Mono',monospace;margin-bottom:8px;">TIPS DE NAMING</p>
+            <div class="checklist">
+              <div class="check-item"><span class="icon">✅</span><div class="check-text">Usa <strong>palabras-clave-con-guiones</strong> (no espacios ni underscores)</div></div>
+              <div class="check-item"><span class="icon">✅</span><div class="check-text">Incluye el tema principal: <strong>receta-tacos-caseros-2025.mp4</strong></div></div>
+              <div class="check-item"><span class="icon">✅</span><div class="check-text">Máximo 5–8 palabras descriptivas</div></div>
+              <div class="check-item"><span class="icon">❌</span><div class="check-text">Evita: <strong>VID_20240101_001.mp4</strong> o nombres genéricos</div></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- EXPORT BUTTON -->
+    <div class="panel">
+      <div class="panel-body">
+        <button class="btn btn-primary btn-full" id="process-btn" onclick="processVideo()" disabled>
+          ⚡ Optimizar y Exportar Video
+        </button>
+        <div class="progress-wrap" id="progress-wrap">
+          <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+          <div class="progress-text" id="progress-text">Iniciando FFmpeg...</div>
+        </div>
+        <div id="log-wrap">
+          <div id="log-box"></div>
+        </div>
+        <div id="download-wrap">
+          <a id="download-link" class="btn btn-primary btn-full" style="text-decoration:none;margin-top:0;">
+            ⬇ Descargar Video Optimizado
+          </a>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ═══ RIGHT COLUMN ═══ -->
+  <div style="display:flex;flex-direction:column;gap:20px;">
+
+    <!-- SCORE -->
+    <div class="panel">
+      <div class="panel-head">
+        <div class="dot" style="background:var(--green)"></div>
+        <h2>Score de Optimización</h2>
+      </div>
+      <div class="panel-body">
+        <div class="score-ring">
+          <div class="ring-wrap">
+            <svg width="72" height="72" viewBox="0 0 72 72">
+              <circle cx="36" cy="36" r="30" fill="none" stroke="var(--bg3)" stroke-width="6"/>
+              <circle id="score-circle" cx="36" cy="36" r="30" fill="none"
+                stroke="var(--green)" stroke-width="6"
+                stroke-dasharray="188.5" stroke-dashoffset="56.5"
+                stroke-linecap="round"/>
+            </svg>
+            <div class="ring-num" id="score-num">70</div>
+          </div>
+          <div class="score-desc">
+            <h3 id="score-label">Buena Base</h3>
+            <p id="score-desc">Ajusta la configuración para mejorar el ranking en las plataformas seleccionadas.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FILE INFO -->
+    <div class="panel">
+      <div class="panel-head">
+        <div class="dot" style="background:var(--text3)"></div>
+        <h2>Info del Archivo</h2>
+      </div>
+      <div class="panel-body">
+        <div class="info-card" id="file-info-card">
+          <div class="info-title">Archivo Original</div>
+          <div class="info-row"><span class="key">Nombre</span><span class="val" id="info-name">—</span></div>
+          <div class="info-row"><span class="key">Tamaño</span><span class="val" id="info-size">—</span></div>
+          <div class="info-row"><span class="key">Tipo</span><span class="val" id="info-type">—</span></div>
+          <div class="info-row"><span class="key">Duración</span><span class="val" id="info-dur">—</span></div>
+          <div class="info-row"><span class="key">Resolución</span><span class="val" id="info-res">—</span></div>
+        </div>
+        <div class="info-card" id="output-info-card">
+          <div class="info-title">Configuración de Salida</div>
+          <div class="info-row"><span class="key">Codec</span><span class="val" id="out-codec">H.264</span></div>
+          <div class="info-row"><span class="key">Formato</span><span class="val" id="out-fmt">MP4</span></div>
+          <div class="info-row"><span class="key">FPS</span><span class="val" id="out-fps">30 fps</span></div>
+          <div class="info-row"><span class="key">Bitrate</span><span class="val" id="out-bitrate">8 Mbps</span></div>
+          <div class="info-row"><span class="key">Faststart</span><span class="val good" id="out-fast">✓ ON</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CHECKLIST -->
+    <div class="panel">
+      <div class="panel-head">
+        <div class="dot" style="background:var(--accent3)"></div>
+        <h2>Checklist de Plataforma</h2>
+      </div>
+      <div class="panel-body">
+        <div class="checklist" id="platform-checklist"></div>
+      </div>
+    </div>
+
+    <!-- ALGORITHM TIPS -->
+    <div class="panel">
+      <div class="panel-head">
+        <div class="dot" style="background:var(--accent2)"></div>
+        <h2>Tips de Algoritmo</h2>
+      </div>
+      <div class="panel-body">
+        <div id="algo-tips" style="display:flex;flex-direction:column;gap:10px;"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- FFMPEG WASM -->
+<script type="module">
+import { FFmpeg } from 'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js';
+import { fetchFile } from 'https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/esm/index.js';
+
+window._FFmpeg = FFmpeg;
+window._fetchFile = fetchFile;
+</script>
+
+<script>
+// ═══════════════════════════════
+// PLATFORM PRESETS
+// ═══════════════════════════════
+const PLATFORMS = {
+  youtube: {
+    name: 'YouTube', color: '#ff0000',
+    tip: '<strong>YouTube</strong> favorece H.264, 1080p o 4K, 30–60fps, AAC 320kbps, archivo MP4 con <code>faststart</code>. El título del archivo y metadatos ayudan al crawl inicial antes de que el algoritmo analice el contenido.',
+    presets: { vcodec:'libx264', vformat:'mp4', resolution:'scale=1920:1080', fps:'30', vbitrate:8, crf:22, preset:'medium', acodec:'aac', abitrate:'320k', faststart:true },
+    checks: [
+      { label:'Codec H.264', check: ()=>document.getElementById('vcodec').value==='libx264' },
+      { label:'Formato MP4', check: ()=>document.getElementById('vformat').value==='mp4' },
+      { label:'1080p o superior', check: ()=>['scale=1920:1080','scale=3840:2160'].includes(document.getElementById('resolution').value) },
+      { label:'30 o 60 fps', check: ()=>['30','60',''].includes(document.getElementById('fps').value) },
+      { label:'AAC audio', check: ()=>document.getElementById('acodec').value==='aac' },
+      { label:'Faststart activado', check: ()=>document.getElementById('faststart').checked },
+      { label:'Título en metadatos', check: ()=>document.getElementById('meta-title').value.trim().length>0 },
+    ],
+    algotips: [
+      '📌 Sube el thumbnail manualmente en la plataforma; el algoritmo pondera el CTR.',
+      '🔤 Los metadatos (título, descripción) son procesados por el crawler de YouTube en las primeras horas.',
+      '⚡ Faststart reduce el tiempo de buffering, lo que mejora el watch-time score.',
+      '🎯 60fps para gaming/deportes mejora engagement en esas categorías.',
+    ]
+  },
+  tiktok: {
+    name: 'TikTok', color: '#ff0050',
+    tip: '<strong>TikTok</strong> prefiere vertical 9:16 (1080×1920), H.264, 30fps mínimo, hasta 287.6 MB. Archivos MP4 con audio AAC tienen prioridad en distribución inicial.',
+    presets: { vcodec:'libx264', vformat:'mp4', resolution:'scale=1080:1920', fps:'30', vbitrate:6, crf:22, preset:'medium', acodec:'aac', abitrate:'192k', faststart:true },
+    checks: [
+      { label:'Codec H.264', check: ()=>document.getElementById('vcodec').value==='libx264' },
+      { label:'Vertical 9:16 (1080×1920)', check: ()=>document.getElementById('resolution').value==='scale=1080:1920' },
+      { label:'MP4', check: ()=>document.getElementById('vformat').value==='mp4' },
+      { label:'30 fps mínimo', check: ()=>['30','60'].includes(document.getElementById('fps').value) },
+      { label:'Bitrate ≤ 8Mbps', check: ()=>parseInt(document.getElementById('vbitrate').value)<=8 },
+      { label:'AAC audio', check: ()=>document.getElementById('acodec').value==='aac' },
+    ],
+    algotips: [
+      '📱 El formato 9:16 es crítico — TikTok penaliza videos con barras negras laterales.',
+      '⏱️ Los primeros 2–3 segundos determinan el retention rate inicial.',
+      '🔊 Audio claro y fuerte mejora las métricas de completación.',
+      '🏷️ Usa trending sounds desde la plataforma (no en el archivo).',
+    ]
+  },
+  instagram: {
+    name: 'Instagram/Reels', color: '#c13584',
+    tip: '<strong>Instagram Reels</strong> recomienda H.264, vertical 9:16 a 1080×1920, 30fps, bitrate 3.5–5 Mbps, AAC, máx. 15 min para Reels. Feed: 1:1 o 4:5.',
+    presets: { vcodec:'libx264', vformat:'mp4', resolution:'scale=1080:1920', fps:'30', vbitrate:5, crf:22, preset:'medium', acodec:'aac', abitrate:'192k', faststart:true },
+    checks: [
+      { label:'H.264 + MP4', check: ()=>document.getElementById('vcodec').value==='libx264'&&document.getElementById('vformat').value==='mp4' },
+      { label:'Vertical o cuadrado', check: ()=>['scale=1080:1920','scale=1080:1080','scale=1080:1350'].includes(document.getElementById('resolution').value) },
+      { label:'30 fps', check: ()=>['30',''].includes(document.getElementById('fps').value) },
+      { label:'Bitrate 3.5–8 Mbps', check: ()=>{ const v=parseInt(document.getElementById('vbitrate').value); return v>=3&&v<=8; }},
+      { label:'AAC stereo', check: ()=>document.getElementById('acodec').value==='aac'&&document.getElementById('achannels').value==='2' },
+      { label:'Faststart ON', check: ()=>document.getElementById('faststart').checked },
+    ],
+    algotips: [
+      '📐 Formato 4:5 (1080×1350) ocupa más espacio en el feed → más CTR.',
+      '🎵 Agrega música trending desde la app (no desde el archivo).',
+      '⚡ Videos bajo 10 MB se procesan más rápido y aparecen antes.',
+      '🖼️ Cover frame llamativo = más saves y shares.',
+    ]
+  },
+  facebook: {
+    name: 'Facebook', color: '#1877f2',
+    tip: '<strong>Facebook</strong> recomienda H.264, MP4, 1080p, 30fps, bitrate hasta 8 Mbps. Videos con subtítulos (captions) aumentan el reach en un 12% promedio según Meta.',
+    presets: { vcodec:'libx264', vformat:'mp4', resolution:'scale=1920:1080', fps:'30', vbitrate:6, crf:22, preset:'medium', acodec:'aac', abitrate:'256k', faststart:true },
+    checks: [
+      { label:'H.264 MP4', check: ()=>document.getElementById('vcodec').value==='libx264'&&document.getElementById('vformat').value==='mp4' },
+      { label:'1080p recomendado', check: ()=>document.getElementById('resolution').value==='scale=1920:1080' },
+      { label:'30 fps', check: ()=>['30',''].includes(document.getElementById('fps').value) },
+      { label:'Bitrate adecuado', check: ()=>{ const v=parseInt(document.getElementById('vbitrate').value); return v>=4&&v<=10; }},
+      { label:'AAC audio', check: ()=>document.getElementById('acodec').value==='aac' },
+      { label:'Título en metadatos', check: ()=>document.getElementById('meta-title').value.trim().length>0 },
+    ],
+    algotips: [
+      '📊 Facebook Watch prioriza videos sobre 3 minutos con alto watch-through.',
+      '📝 Embed subtítulos (SRT) para aumentar alcance orgánico.',
+      '🔇 El 85% de los videos de Facebook se ven sin sonido — subtítulos son clave.',
+      '📱 Square o vertical aumentan el real estate en móvil.',
+    ]
+  },
+  x: {
+    name: 'X / Twitter', color: '#ffffff',
+    tip: '<strong>X (Twitter)</strong> soporta MP4 H.264, máx 512 MB, 140 segundos (verificados: 10 min). Resolución hasta 1920×1200. Bitrate recomendado: 5 Mbps para móvil.',
+    presets: { vcodec:'libx264', vformat:'mp4', resolution:'scale=1920:1080', fps:'30', vbitrate:5, crf:23, preset:'medium', acodec:'aac', abitrate:'192k', faststart:true },
+    checks: [
+      { label:'H.264 + MP4', check: ()=>document.getElementById('vcodec').value==='libx264'&&document.getElementById('vformat').value==='mp4' },
+      { label:'Resolución soportada', check: ()=>['scale=1920:1080','scale=1280:720','scale=1080:1920','scale=1080:1080'].includes(document.getElementById('resolution').value)||document.getElementById('resolution').value==='' },
+      { label:'AAC audio', check: ()=>document.getElementById('acodec').value==='aac' },
+      { label:'Faststart ON', check: ()=>document.getElementById('faststart').checked },
+      { label:'Bitrate ≤ 25 Mbps', check: ()=>parseInt(document.getElementById('vbitrate').value)<=25 },
+    ],
+    algotips: [
+      '⏱️ Videos de 6–15 segundos tienen mayor completion rate en X.',
+      '🔁 Alta completion rate es el principal factor de distribución.',
+      '💬 Video con texto en pantalla funciona mejor sin audio.',
+      '📲 Thumbnails cuadrados se ven mejor en la app móvil.',
+    ]
+  }
+};
+
+let currentPlatform = 'youtube';
+let videoFile = null;
+let ffmpegReady = false;
+let ffmpegInstance = null;
+
+// ═══════════════════════════════
+// INIT
+// ═══════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  setPlatform('youtube', document.querySelector('[data-plat="youtube"]'));
+  updateOutputInfo();
+  // listen to control changes
+  const controls = ['vcodec','vformat','fps','vbitrate','crf','acodec','abitrate','faststart','achannels','resolution'];
+  controls.forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.addEventListener('change', () => { updateOutputInfo(); updateScore(); updateChecklist(); });
+  });
+  document.getElementById('vbitrate').addEventListener('input', () => { updateOutputInfo(); updateScore(); });
+  document.getElementById('meta-title').addEventListener('input', () => { updateScore(); updateChecklist(); });
+  initFFmpeg();
+});
+
+async function initFFmpeg() {
+  try {
+    const { FFmpeg } = await import('https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js');
+    ffmpegInstance = new FFmpeg();
+    ffmpegInstance.on('log', ({ message }) => { addLog(message); });
+    ffmpegInstance.on('progress', ({ progress }) => {
+      const pct = Math.round(progress * 100);
+      setProgress(pct, `Procesando: ${pct}%`);
+    });
+    ffmpegReady = true;
+    addLog('FFmpeg WASM disponible');
+  } catch(e) {
+    addLog('Error cargando FFmpeg: ' + e.message);
+  }
+}
+
+// ═══════════════════════════════
+// PLATFORM
+// ═══════════════════════════════
+window.setPlatform = function(plat, el) {
+  currentPlatform = plat;
+  document.querySelectorAll('.plat-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  const p = PLATFORMS[plat];
+  document.getElementById('platform-tip').innerHTML = p.tip;
+  document.getElementById('platform-tip').classList.add('visible');
+  // apply presets
+  const pr = p.presets;
+  document.getElementById('vcodec').value = pr.vcodec;
+  document.getElementById('vformat').value = pr.vformat;
+  document.getElementById('resolution').value = pr.resolution;
+  document.getElementById('fps').value = pr.fps;
+  document.getElementById('vbitrate').value = pr.vbitrate;
+  document.getElementById('vbitrate-val').textContent = pr.vbitrate + ' Mbps';
+  document.getElementById('crf').value = pr.crf;
+  document.getElementById('crf-val').textContent = pr.crf;
+  document.getElementById('preset').value = pr.preset;
+  document.getElementById('acodec').value = pr.acodec;
+  document.getElementById('abitrate').value = pr.abitrate;
+  document.getElementById('faststart').checked = pr.faststart;
+  updateOutputInfo();
+  updateScore();
+  updateChecklist();
+  updateAlgoTips();
+};
+
+// ═══════════════════════════════
+// FILE UPLOAD
+// ═══════════════════════════════
+const dz = document.getElementById('dropzone');
+const fi = document.getElementById('file-input');
+
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('dragover'); handleFile(e.dataTransfer.files[0]); });
+fi.addEventListener('change', e => handleFile(e.target.files[0]));
+
+function handleFile(file) {
+  if(!file || !file.type.startsWith('video/')) return;
+  videoFile = file;
+  const url = URL.createObjectURL(file);
+  const vid = document.getElementById('preview-video');
+  vid.src = url;
+  document.getElementById('preview-wrap').style.display = 'block';
+  // info
+  document.getElementById('info-name').textContent = truncate(file.name, 22);
+  document.getElementById('info-size').textContent = formatBytes(file.size);
+  document.getElementById('info-type').textContent = file.type || 'video/*';
+  // get duration + resolution
+  vid.onloadedmetadata = () => {
+    document.getElementById('info-dur').textContent = formatTime(vid.duration);
+    document.getElementById('info-res').textContent = vid.videoWidth + '×' + vid.videoHeight;
+  };
+  // auto fill filename
+  const base = file.name.replace(/\.[^.]+$/, '').replace(/[\s_]+/g, '-').toLowerCase();
+  document.getElementById('out-filename').value = base + '-optimizado';
+  document.getElementById('process-btn').disabled = false;
+  document.getElementById('download-wrap').style.display = 'none';
+  updateScore();
+  updateChecklist();
+}
+
+// ═══════════════════════════════
+// OUTPUT INFO PANEL
+// ═══════════════════════════════
+function updateOutputInfo() {
+  document.getElementById('out-codec').textContent = document.getElementById('vcodec').value;
+  document.getElementById('out-fmt').textContent = document.getElementById('vformat').value.toUpperCase();
+  const fps = document.getElementById('fps').value;
+  document.getElementById('out-fps').textContent = fps ? fps+' fps' : 'Original';
+  document.getElementById('out-bitrate').textContent = document.getElementById('vbitrate').value+' Mbps';
+  const fs = document.getElementById('faststart').checked;
+  document.getElementById('out-fast').textContent = fs ? '✓ ON' : '✗ OFF';
+  document.getElementById('out-fast').className = 'val ' + (fs ? 'good' : 'warn');
+}
+
+// ═══════════════════════════════
+// SCORE
+// ═══════════════════════════════
+function updateScore() {
+  const p = PLATFORMS[currentPlatform];
+  const checks = p.checks;
+  const passed = checks.filter(c => { try{ return c.check(); }catch(e){ return false; } }).length;
+  const hasMeta = document.getElementById('meta-title').value.trim().length > 0;
+  const hasFile = videoFile !== null;
+  let score = Math.round((passed / checks.length) * 80);
+  if(hasMeta) score += 10;
+  if(hasFile) score += 10;
+  score = Math.min(score, 100);
+
+  document.getElementById('score-num').textContent = score;
+  const circ = document.getElementById('score-circle');
+  const r = 30; const circ2 = 2 * Math.PI * r;
+  const offset = circ2 - (score / 100) * circ2;
+  circ.style.strokeDashoffset = offset;
+
+  let color, label, desc;
+  if(score >= 85) { color='#00e676'; label='Excelente'; desc='Configuración óptima para máximo alcance en '+p.name; }
+  else if(score >= 65) { color='#ffd600'; label='Buena Base'; desc='Ajusta algunos parámetros para mejorar el ranking.'; }
+  else if(score >= 40) { color='#ff9100'; label='Mejorable'; desc='Aplica el preset de la plataforma para subir el score.'; }
+  else { color='#ff3b5c'; label='Necesita Trabajo'; desc='Selecciona la plataforma y aplica los parámetros recomendados.'; }
+
+  circ.style.stroke = color;
+  document.getElementById('score-label').textContent = label;
+  document.getElementById('score-label').style.color = color;
+  document.getElementById('score-desc').textContent = desc;
+}
+
+// ═══════════════════════════════
+// CHECKLIST
+// ═══════════════════════════════
+function updateChecklist() {
+  const p = PLATFORMS[currentPlatform];
+  const wrap = document.getElementById('platform-checklist');
+  wrap.innerHTML = p.checks.map(c => {
+    let ok = false; try { ok = c.check(); } catch(e) {}
+    return `<div class="check-item">
+      <span class="icon">${ok ? '✅' : '⬜'}</span>
+      <div class="check-text" style="color:${ok?'var(--text)':'var(--text2)'}"><strong>${c.label}</strong></div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════
+// ALGO TIPS
+// ═══════════════════════════════
+function updateAlgoTips() {
+  const p = PLATFORMS[currentPlatform];
+  document.getElementById('algo-tips').innerHTML = p.algotips.map(t =>
+    `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:5px;padding:11px 13px;font-size:.82rem;line-height:1.5;color:var(--text2);">${t}</div>`
+  ).join('');
+}
+
+// ═══════════════════════════════
+// TABS
+// ═══════════════════════════════
+window.switchTab = function(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('tab-'+name).classList.add('active');
+};
+
+// ═══════════════════════════════
+// PROCESS VIDEO
+// ═══════════════════════════════
+window.processVideo = async function() {
+  if(!videoFile) return;
+
+  const btn = document.getElementById('process-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Procesando...';
+  document.getElementById('progress-wrap').style.display = 'block';
+  document.getElementById('log-wrap').style.display = 'block';
+  document.getElementById('download-wrap').style.display = 'none';
+
+  const vcodec = document.getElementById('vcodec').value;
+  const vformat = document.getElementById('vformat').value;
+  const resolution = document.getElementById('resolution').value;
+  const fps = document.getElementById('fps').value;
+  const vbitrate = document.getElementById('vbitrate').value;
+  const crf = document.getElementById('crf').value;
+  const vpreset = document.getElementById('preset').value;
+  const acodec = document.getElementById('acodec').value;
+  const abitrate = document.getElementById('abitrate').value;
+  const achannels = document.getElementById('achannels').value;
+  const asample = document.getElementById('asample').value;
+  const volume = document.getElementById('volume').value;
+  const faststart = document.getElementById('faststart').checked;
+  const loudnorm = document.getElementById('loudnorm').checked;
+  const colorfix = document.getElementById('colorfix').checked;
+  // metadata
+  const title = document.getElementById('meta-title').value;
+  const comment = document.getElementById('meta-comment').value;
+  const author = document.getElementById('meta-author').value;
+  const copyright = document.getElementById('meta-copyright').value;
+  const year = document.getElementById('meta-year').value;
+  const lang = document.getElementById('meta-lang').value;
+  const tags = document.getElementById('meta-tags').value;
+  const outname = document.getElementById('out-filename').value || 'video-optimizado';
+  const outfile = outname.replace(/[^a-zA-Z0-9\-_]/g,'_') + '.' + vformat;
+
+  setProgress(5, 'Iniciando FFmpeg WASM...');
+  addLog('— Iniciando procesamiento —');
+
+  try {
+    if(!ffmpegInstance) throw new Error('FFmpeg no disponible');
+    const { fetchFile } = await import('https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/esm/index.js');
+
+    setProgress(10, 'Cargando FFmpeg...');
+    if(!ffmpegInstance.loaded) {
+      await ffmpegInstance.load({
+        coreURL: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.js',
+      });
+    }
+    addLog('FFmpeg cargado correctamente');
+    setProgress(20, 'Leyendo archivo de video...');
+
+    const ext = videoFile.name.split('.').pop();
+    const inName = 'input.' + ext;
+    await ffmpegInstance.writeFile(inName, await fetchFile(videoFile));
+    addLog('Archivo de entrada: ' + inName);
+
+    // BUILD FFMPEG COMMAND
+    const args = ['-i', inName];
+
+    // Video filters
+    const vfilters = [];
+    if(resolution) vfilters.push(resolution);
+    if(colorfix) vfilters.push('colorlevels=rimin=0.059:gimin=0.059:bimin=0.059:ramax=0.902:gamax=0.902:bamax=0.902');
+    if(vfilters.length > 0) { args.push('-vf', vfilters.join(',')); }
+
+    // Video codec
+    if(vcodec === 'copy') {
+      args.push('-c:v', 'copy');
+    } else {
+      args.push('-c:v', vcodec);
+      if(vcodec === 'libx264' || vcodec === 'libx265') {
+        args.push('-crf', crf, '-preset', vpreset);
+      }
+      args.push('-b:v', vbitrate+'M');
+    }
+
+    // FPS
+    if(fps) args.push('-r', fps);
+
+    // Audio
+    if(acodec === 'none') {
+      args.push('-an');
+    } else if(acodec === 'copy') {
+      args.push('-c:a', 'copy');
+    } else {
+      const audioFilters = [];
+      if(parseFloat(volume) !== 0) audioFilters.push(`volume=${volume}dB`);
+      if(loudnorm) audioFilters.push('loudnorm=I=-14:TP=-2:LRA=11');
+      if(audioFilters.length > 0) args.push('-af', audioFilters.join(','));
+      args.push('-c:a', acodec, '-b:a', abitrate, '-ac', achannels, '-ar', asample);
+    }
+
+    // Metadata
+    if(title) args.push('-metadata', `title=${title}`);
+    if(comment) args.push('-metadata', `comment=${comment}`);
+    if(author) args.push('-metadata', `artist=${author}`);
+    if(copyright) args.push('-metadata', `copyright=${copyright}`);
+    if(year) args.push('-metadata', `year=${year}`);
+    if(lang) args.push('-metadata', `language=${lang}`);
+    if(tags) args.push('-metadata', `keywords=${tags}`);
+
+    // Faststart
+    if(faststart && vformat === 'mp4') {
+      args.push('-movflags', 'faststart');
+    }
+
+    args.push('-y', outfile);
+
+    addLog('Comando: ffmpeg ' + args.join(' '));
+    setProgress(30, 'Procesando video...');
+
+    await ffmpegInstance.exec(args);
+
+    setProgress(90, 'Leyendo archivo de salida...');
+    const data = await ffmpegInstance.readFile(outfile);
+    const blob = new Blob([data.buffer], { type: 'video/' + vformat });
+    const url = URL.createObjectURL(blob);
+
+    const dlLink = document.getElementById('download-link');
+    dlLink.href = url;
+    dlLink.download = outfile;
+    dlLink.textContent = `⬇ Descargar ${outfile} (${formatBytes(blob.size)})`;
+    document.getElementById('download-wrap').style.display = 'block';
+
+    setProgress(100, '¡Video procesado con éxito! 🎉');
+    addLog('✓ Procesamiento completado: ' + outfile + ' (' + formatBytes(blob.size) + ')');
+
+    btn.textContent = '✓ Completado — Procesar otro';
+    btn.disabled = false;
+
+  } catch(err) {
+    addLog('ERROR: ' + err.message);
+    setProgress(0, 'Error en el procesamiento');
+    btn.textContent = '⚡ Optimizar y Exportar Video';
+    btn.disabled = false;
+    alert('Error procesando el video:\n' + err.message + '\n\nAsegúrate de que tu navegador soporte SharedArrayBuffer (Chrome recomendado).');
+  }
+};
+
+// ═══════════════════════════════
+// HELPERS
+// ═══════════════════════════════
+function setProgress(pct, text) {
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('progress-text').textContent = text;
+}
+
+function addLog(msg) {
+  const box = document.getElementById('log-box');
+  box.textContent += msg + '\n';
+  box.scrollTop = box.scrollHeight;
+}
+
+function formatBytes(b) {
+  if(b > 1e9) return (b/1e9).toFixed(2)+' GB';
+  if(b > 1e6) return (b/1e6).toFixed(1)+' MB';
+  return (b/1e3).toFixed(0)+' KB';
+}
+
+function formatTime(s) {
+  const m = Math.floor(s/60), sec = Math.floor(s%60);
+  return m+'m '+sec.toString().padStart(2,'0')+'s';
+}
+
+function truncate(str, n) {
+  return str.length > n ? str.slice(0,n-1)+'…' : str;
+}
+
+// init tips on load
+updateAlgoTips();
+updateChecklist();
+</script>
+</body>
+</html>
